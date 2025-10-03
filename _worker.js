@@ -82,6 +82,46 @@
  * - Ändere c_SECRETCODE in eine zufällige geheime Zeichenkette.
  */
 
+// 🌐 The display name of your bot (set in Telegram via API).
+// This is what users see as the bot’s name in chats and profile.
+// 🇨🇳 机器人显示名称。
+// 🇪🇸 Nombre que se muestra del bot.
+// 🇫🇷 Nom affiché du bot.
+// 🇩🇪 Anzeigename des Bots.
+const c_BotName = 'DageIDBot';
+
+// 🌐 Short description (BIO) — shown in the bot profile under the name (max 120 chars).
+// Keep it short and clear. Example: "Get your Telegram ID instantly".
+// 🇨🇳 简短描述（简介），显示在机器人名字下面（最多 120 字）。
+// 🇪🇸 Descripción corta (BIO), aparece debajo del nombre (máx. 120 caracteres).
+// 🇫🇷 Courte description (BIO), sous le nom du bot (max 120 caractères).
+// 🇩🇪 Kurze Beschreibung (BIO), unter dem Namen (max. 120 Zeichen).
+const c_ShortDescription = 'Get chat and user IDs by forwarding any message here.'
+  + '🔗 https://github.com/wwwdageparty/Da-Telegram-ID-Bot';
+
+// 🌐 Full description — shown in the bot’s profile before the user starts chatting (max 512 chars).
+// Good for explaining what the bot does and how to use it.
+// 🇨🇳 完整描述，显示在用户开始聊天之前的机器人资料中（最多 512 字）。
+// 🇪🇸 Descripción completa, aparece en el perfil antes de iniciar chat (máx. 512 caracteres).
+// 🇫🇷 Description complète, affichée dans le profil avant le démarrage du chat (max 512 caractères).
+// 🇩🇪 Vollständige Beschreibung, im Profil angezeigt vor dem Start des Chats (max. 512 Zeichen).
+const c_Description = 'This bot helps you find Telegram IDs:\n'
+  + '- In private chat: shows your own user ID.\n'
+  + '- In groups: shows the group ID and the sender ID.\n'
+  + 'Built with Cloudflare Workers 🚀.';
+
+// 🌐 Welcome message — sent when the user types /start.
+// Use it to introduce the bot and provide useful info/links.
+// 🇨🇳 欢迎信息，当用户输入 /start 时发送。
+// 🇪🇸 Mensaje de bienvenida, enviado cuando el usuario usa /start.
+// 🇫🇷 Message de bienvenue, envoyé quand l’utilisateur tape /start.
+// 🇩🇪 Willkommensnachricht, gesendet bei /start.
+const c_Welcome = '👋 Welcome to DageIDBot!\n\n'
+  + 'Forward me any message, and I will show you:\n'
+  + '- Your user ID (in private chat)\n'
+  + '- Group ID + sender ID (in group chat)\n\n'
+  + '📖 Open-source project — deploy your own bot for free on Cloudflare Workers!\n'
+  + '🔗 Source: https://github.com/wwwdageparty/Da-Telegram-ID-Bot';
 
 // 🌐 The link path for your bot. Change to any word you like.
 // 🇨🇳 机器人用的网址路径，可以改成任意单词。
@@ -174,14 +214,29 @@ async function onMessage(env, message) {
     await sendTextToOwner("Unknown message:\n" + JSON.stringify(message, null, 2))
     return
   }
-
   const senderId = message.from ? message.from.id : "unknown"
+  let responseText = ''
+  if (message.text && message.text.trim() === "/start") {
+    await sendPlainText(message.chat.id, c_Welcome)
+    return
+  }
+
+  if (message.forward_from_chat) {
+    const forwardChatId = message.forward_from_chat.id
+    responseText = `Forwarded from chat ID: ${forwardChatId}\n`
+    if (message.forward_from) {
+      const forwardFromId = message.forward_from.id
+      responseText += `Original sender ID: ${forwardFromId}\n`
+    }
+  }
 
   if (message.chat.type === "private") {
-    await sendPlainText(message.chat.id, `Your ID: ${message.chat.id}`)
+    responseText += `Your ID: ${message.chat.id}`
   } else {
-    await sendPlainText(message.chat.id, `Group ID: ${message.chat.id}\nSender ID: ${senderId}`)
+    responseText += `Group ID: ${message.chat.id}\nSender ID: ${senderId}`
   }
+
+  await sendPlainText(message.chat.id, responseText)
 }
 
 
@@ -224,6 +279,7 @@ function apiUrl(methodName, params = null) {
 
 async function botInstall(request, env) {
   const url = new URL(request.url)
+  await setBotInfo();
   return await tgRegisterWebhook(url)
 }
 
@@ -252,4 +308,35 @@ async function tgRegisterWebhook(requestUrl) {
   }
 
   return new Response(resJson && resJson.ok ? 'Ok' : JSON.stringify(resJson, null, 2))
+}
+
+
+async function setBotInfo() {
+  await fetch(apiUrl("setMyName"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: c_BotName }),
+  });
+
+  await fetch(apiUrl("setMyShortDescription"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ short_description: c_ShortDescription }),
+  });
+
+  await fetch(apiUrl("setMyDescription"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ description: c_Description }),
+  });
+
+  await fetch(apiUrl("setMyCommands"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      commands: [
+        { command: "start", description: "Show welcome message" }
+      ],
+    }),
+  });
 }
